@@ -6,6 +6,7 @@ import cn.hutool.core.util.ZipUtil;
 import cn.hutool.json.JSONUtil;
 
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 
 public class AreaCache {
 
@@ -23,7 +24,7 @@ public class AreaCache {
         return areaEntity;
     }
 
-    public AreaEntity getCache() {
+    private AreaEntity getCache() {
         byte[] data = IoUtil.readBytes(this.getClass().getClassLoader().getResourceAsStream("area.dat"));
         return JSONUtil.toBean(decode(data), AreaEntity.class);
     }
@@ -34,13 +35,13 @@ public class AreaCache {
 
 
     public static void main(String[] args) throws FileNotFoundException {
-//        byte[] bytes = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("area.json"));
-//        byte[] zips = Base64.encode(ZipUtil.gzip(bytes), true);
-//        IoUtil.write(new FileOutputStream("/Users/mac/Documents/code/java/jaddress-parser/src/main/resources/area.dat"),true, zips);
+        byte[] bytes = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("area.json"));
+        byte[] zips = Base64.encode(ZipUtil.gzip(bytes), true);
+        IoUtil.write(new FileOutputStream("C:\\Users\\Administrator\\IdeaProjects\\jaddress-parser\\src\\main\\resources\\area.dat"),true, zips);
 
-        AreaCache cache = new AreaCache();
-        AreaEntity entity = cache.getCache();
-        System.out.println(entity);
+//        AreaCache cache = new AreaCache();
+//        AreaEntity entity = cache.getCache();
+//        System.out.println(entity);
 
 
     }
