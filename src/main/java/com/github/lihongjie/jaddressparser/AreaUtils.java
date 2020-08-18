@@ -1,6 +1,7 @@
 package com.github.lihongjie.jaddressparser;
 
 import cn.hutool.core.lang.Assert;
+import cn.hutool.core.lang.Pair;
 import cn.hutool.core.util.StrUtil;
 
 import java.util.HashMap;
@@ -19,7 +20,9 @@ public class AreaUtils {
     }
 
     public static Map<String, String> getTargetAreaListByCode(TargetType target, String code, boolean parent) {
-        if(parent); // TODO: 2020/8/18 获取父对象  getTargetParentAreaListByCode
+        // 获取父对象
+        if(parent) return getTargetParentAreaListByCode(target, code);
+
 
         Map<String, String> result = new HashMap<>();
         Map<String, String> list;
@@ -32,44 +35,77 @@ public class AreaUtils {
             case AREA:
                 list = entity.getAreaList();
                 break;
+            case PROVINCE:
+                list = entity.getProvinceList();
+                break;
             default:
                 throw new RuntimeException("The target is not below.");
         }
-        Assert.notNull(list);
-        Assert.notNull(code);
-        String provinceCode = code.substring(0, 2);
-        String cityCode = code.substring(2, 4);
-        if(target == TargetType.AREA && !cityCode.equals("00")) {
-            code = provinceCode + cityCode;
-            for (int i = 0; i < 100; i++) {
-                String _code = code + String.format("%02d", i);
-                if(null != list.get(_code)) {
-                    result.put(_code, list.get(_code));
-                }
-            }
-        } else {
-            for (int i = 0; i < 91; i++) {  //最大编码只到91
-                code = provinceCode + String.format("%02d", i) + (target == TargetType.CITY ? "00" : "");
-                if(target == TargetType.CITY) {
-                    if(null != list.get(code)) {
-                        result.put(code, list.get(code));
+        if(null != list && StrUtil.isNotBlank(code)) {
+            String provinceCode = code.substring(0, 2);
+            String cityCode = code.substring(2, 4);
+            if(target == TargetType.AREA && !cityCode.equals("00")) {
+                code = provinceCode + cityCode;
+                for (int i = 0; i < 100; i++) {
+                    String _code = code + String.format("%02d", i);
+                    if(null != list.get(_code)) {
+                        result.put(_code, list.get(_code));
                     }
-                } else {
-                    for (int j = 0; j < 100; j++) {
-                        String _code = code + String.format("%02d", j);
-                        if(null != list.get(_code)) {
-                            result.put(_code, list.get(_code));
+                }
+            } else {
+                for (int i = 0; i < 91; i++) {  //最大编码只到91
+                    code = provinceCode + String.format("%02d", i) + (target == TargetType.CITY ? "00" : "");
+                    if(target == TargetType.CITY) {
+                        if(null != list.get(code)) {
+                            result.put(code, list.get(code));
+                        }
+                    } else {
+                        for (int j = 0; j < 100; j++) {
+                            String _code = code + String.format("%02d", j);
+                            if(null != list.get(_code)) {
+                                result.put(_code, list.get(_code));
+                            }
                         }
                     }
                 }
             }
+        } else {
+            for (String key : list.keySet()) {
+                result.put(key, list.get(key));
+            }
         }
+
         return result;
     }
 
-    public static int shortIndexOf(String address, String shortName, String name, String matchName) {
+    /**
+     * 根据code取父省市对象
+     * @param target
+     * @param code
+     * @return
+     */
+    private static Map<String, String> getTargetParentAreaListByCode(TargetType target, String code) {
+        AreaEntity entity = new AreaCache().getEntity();
+        Map<String, String> provinceList = entity.getProvinceList();
+        Map<String, String> cityList = entity.getCityList();
+        Map<String, String> areaList = entity.getAreaList();
+        Map<String, String> result = new HashMap<>();
+        result.put(code, areaList.get(code));
+        if(target == TargetType.CITY || target == TargetType.PROVINCE) {
+            code = code.substring(0, 4) + "00";
+            result.put(code, cityList.get(code));
+        }
+        if(target == TargetType.PROVINCE) {
+            code = code.substring(0, 2) + "0000";
+            result.put(code, provinceList.get(code));
+        }
+        // FIXME: 2020/8/19 这里使用map不能保证顺序，导致省信息作为第二个返回
+        return result;
+    }
+
+    public static Pair<Integer, String> shortIndexOf(String address, String shortName, String name) {
         int index = address.indexOf(shortName);
-        matchName = shortName;
+        String matchName = shortName;
         if(index > -1) {
             for (int i = shortName.length(); i <= name.length(); i++) {
                 String _name = name.substring(0, i);
@@ -82,7 +118,7 @@ public class AreaUtils {
                 }
             }
         }
-        return index;
+        return new Pair<>(index, matchName);
     }
 
     public static void main(String[] args) {

@@ -37,7 +37,7 @@ public class AreaCache {
     public static void main(String[] args) throws FileNotFoundException {
         byte[] bytes = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("area.json"));
         byte[] zips = Base64.encode(ZipUtil.gzip(bytes), true);
-        IoUtil.write(new FileOutputStream("C:\\Users\\Administrator\\IdeaProjects\\jaddress-parser\\src\\main\\resources\\area.dat"),true, zips);
+        IoUtil.write(new FileOutputStream("/Users/mac/Documents/code/java/jaddress-parser/src/main/resources/area.dat"),true, zips);
 
 //        AreaCache cache = new AreaCache();
 //        AreaEntity entity = cache.getCache();

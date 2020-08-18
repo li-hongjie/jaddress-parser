@@ -1,5 +1,6 @@
 package com.github.lihongjie.jaddressparser;
 
+import cn.hutool.core.lang.Pair;
 import cn.hutool.core.util.StrUtil;
 
 import java.util.*;
@@ -79,7 +80,16 @@ public class AreaParser {
      * @return
      */
     public List<AreaParserResult> parse(String address, boolean isParseAll) {
-        return parseByProvince(address);
+
+        List<AreaParserResult> results = new ArrayList<>();
+        //正向解析
+        results.addAll(0, parseByProvince(address));
+        if(isParseAll || null == results.get(0) || !results.get(0).__parse) {
+            //逆向城市解析 通过所有CityShort匹配
+            results.addAll(0, parseByCity(address));
+        }
+
+        return results;
 
     }
 
@@ -128,7 +138,7 @@ public class AreaParser {
                 }
 
                 String __address = parseCityByProvince(address, result);
-                if(StrUtil.isNotBlank(result.city)) {
+                if(StrUtil.isBlank(result.city)) {
                     __address = parseAreaByProvince(address, result);
                 }
 
@@ -224,17 +234,16 @@ public class AreaParser {
      * @param result
      * @return
      */
-    private String parseAreaByCity(String address, ProvinceParserResult result) {
+    private String parseAreaByCity(String address, AreaParserResult result) {
         Map<String, String> areaList = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.AREA, result.code);
         MiddleParserResult _result = new MiddleParserResult();
         for(String areaCode : areaList.keySet()) {
             int index = address.indexOf(areaList.get(areaCode));
             String shortArea = index > -1 ? "" : AREA_SHORT.get(areaCode);
             if(StrUtil.isNotBlank(shortArea)) {
-                String matchName = "";
-                int _index = AreaUtils.shortIndexOf(address, shortArea, areaList.get(areaCode), matchName);
-                index = _index;
-                shortArea = matchName;
+                Pair<Integer, String> pair = AreaUtils.shortIndexOf(address, shortArea, areaList.get(areaCode));
+                index = pair.getKey();
+                shortArea = pair.getValue();
             }
             int areaLength = StrUtil.isNotBlank(shortArea) ? shortArea.length() : areaList.get(areaCode).length();
             if(index > -1 && (_result.index == -1 || _result.index > index || (StrUtil.isBlank(shortArea) && _result.isShort))) {
@@ -269,15 +278,122 @@ public class AreaParser {
      * @return
      */
     private String parseAreaByProvince(String address, ProvinceParserResult result) {
+        Map<String, String> areaList = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.AREA, result.code);
+        for(String areaKey : areaList.keySet()) {
+            int index = address.indexOf(areaList.get(areaKey));
+            String shortArea = index > -1 ? "" : AREA_SHORT.get(areaKey);
+            if(StrUtil.isNotBlank(shortArea)) {
+                Pair<Integer, String> pair = AreaUtils.shortIndexOf(address, shortArea, areaList.get(areaKey));
+                index = pair.getKey();
+                shortArea = pair.getValue();
+            }
+            int areaLength = StrUtil.isNotBlank(shortArea) ? shortArea.length() : areaList.get(areaKey).length();
 
-        return "";
+            if(index > -1 && index < 6) {
+                Map<String, String> city = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.CITY, areaKey, true);
+
+                result.city = city.values().iterator().next();
+                result.area = areaList.get(areaKey);
+                result.code = areaKey;
+
+                address = address.substring(index + areaLength);
+                //如果是用短名匹配的 要替换地区关键字
+                if(StrUtil.isNotBlank(shortArea)) {
+                    for(String key : AREA_KEYS) {
+                        if(address.indexOf(key) == 0) {
+                            address = address.substring(key.length());
+                        }
+                    }
+                }
+
+                break;
+
+            }
+        }
+
+        return address;
+    }
+
+    /**
+     * 2.1 通过城市识别地址
+     * @param addressBase
+     * @return
+     */
+    private List<AreaParserResult> parseByCity(String addressBase) {
+        AreaEntity entity = new AreaCache().getEntity();
+        Map<String, String> cityList = entity.getCityList();
+        List<AreaParserResult> results = new ArrayList<>();
+        AreaParserResult result = new CityParserResult();
+
+        String address = addressBase;
+        for(String cityCode :cityList.keySet()) {
+            String city = cityList.get(cityCode);
+            if(city.length() < 2) break;
+            int index = address.indexOf(city);
+            String shortCity = index > -1 ? "" : CITY_SHORT.get(cityCode);
+            int cityLength = StrUtil.isNotBlank(shortCity) ? shortCity.length() : city.length();
+            if(StrUtil.isNotBlank(shortCity)) {
+                index = address.indexOf(shortCity);
+            }
+            if(index > -1) {
+                Map<String, String> targetAreaListByCode = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.PROVINCE, cityCode, true);
+                String province = targetAreaListByCode.values().iterator().next();
+                String provinceCode = targetAreaListByCode.keySet().iterator().next();
+
+                result.province = province;
+                result.city = city;
+                result.code = cityCode;
+                // 左侧排除省份名剩下的内容识别为姓名
+                String leftAddress = address.substring(0, index);
+                String _provinceName = "";
+                if(StrUtil.isNotBlank(leftAddress)) {
+                    _provinceName = province;
+                    int _index = leftAddress.indexOf(_provinceName);
+                    if(_index == -1) {
+                        _provinceName = PROVINCE_SHORT.get(provinceCode);
+                        _index = leftAddress.indexOf(_provinceName);
+                        if(_index == -1) _provinceName = "";
+                    }
+                    if(StrUtil.isNotBlank(_provinceName)) {
+                        leftAddress = leftAddress.replaceAll(_provinceName, "");
+                    }
+                    if(StrUtil.isNotBlank(leftAddress)) {
+                        result.name = leftAddress;
+                    }
+                }
+
+                address = address.substring(index + cityLength);
+                address = parseAreaByCity(address, result);
+                if(StrUtil.isNotBlank(_provinceName) || StrUtil.isNotBlank(result.area)) {
+                    result.__parse = true;
+                    break;
+                } else {
+                    //如果没有识别到省份和地区 缓存本次结果，并重置数据
+                    result.details = address.trim();
+                    results.add(result);
+                    result = new CityParserResult();
+                    address = addressBase;
+                }
+
+
+
+            }
+        }
+
+        if(StrUtil.isNotBlank(result.code)) {
+            result.details = address.trim();
+            results.add(result);
+        }
+
+        return results;
+
     }
 
 
 
     public static void main(String[] args) {
         AreaParser parser = new AreaParser();
-        List<AreaParserResult> list = parser.parse("山西忻州市市", true);
+        List<AreaParserResult> list = parser.parse("山西省武汉市", true);
         list.forEach(System.out::println);
     }
 
@@ -318,6 +434,12 @@ class AreaParserResult {
 class ProvinceParserResult extends AreaParserResult {
     ProvinceParserResult() {
         super("parseByProvince");
+    }
+}
+
+class CityParserResult extends AreaParserResult {
+    CityParserResult() {
+        super("parseByCity");
     }
 }
 
