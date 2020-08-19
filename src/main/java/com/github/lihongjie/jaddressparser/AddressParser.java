@@ -2,6 +2,8 @@ package com.github.lihongjie.jaddressparser;
 
 import cn.hutool.core.util.ReUtil;
 
+import java.util.List;
+
 public class AddressParser {
 
     private static final String[] EXCLUDE_KEYS = new String[]{"发件人", "收货地址", "收货人", "收件人", "收货", "手机号码", "邮编", "电话", "所在地区", "详细地址", "地址", "：", ":", "；", ";", "，", ",", "。", "、"};
@@ -13,11 +15,13 @@ public class AddressParser {
     }
 
     public void parse(String address, boolean isParseAll) {
-        this.replace();
-        this.parseMobile();
-        this.parsePhone();
-        this.parseZipCode();
-
+//        this.replace();
+//        this.parseMobile();
+//        this.parsePhone();
+//        this.parseZipCode();
+        address = address.replaceAll("/ {2,}/", " ");
+        List<AreaParserResult> parse = new AreaParser().parse(address, isParseAll);
+        parse.forEach(System.out::println);
     }
 
     /**
@@ -82,4 +86,5 @@ class ParserResult {
     String mobile;
     String phone;
     String zipCode;
+    String address;
 }

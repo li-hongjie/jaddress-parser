@@ -1,12 +1,9 @@
 package com.github.lihongjie.jaddressparser;
 
-import cn.hutool.core.lang.Assert;
 import cn.hutool.core.lang.Pair;
 import cn.hutool.core.util.StrUtil;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class AreaUtils {
 
@@ -15,16 +12,16 @@ public class AreaUtils {
         private TargetType(){}
     }
 
-    public static Map<String, String> getTargetAreaListByCode(TargetType target, String code) {
+    public static List<AreaInfo> getTargetAreaListByCode(TargetType target, String code) {
         return getTargetAreaListByCode(target, code, false);
     }
 
-    public static Map<String, String> getTargetAreaListByCode(TargetType target, String code, boolean parent) {
+    public static List<AreaInfo> getTargetAreaListByCode(TargetType target, String code, boolean parent) {
         // 获取父对象
         if(parent) return getTargetParentAreaListByCode(target, code);
 
 
-        Map<String, String> result = new HashMap<>();
+        List<AreaInfo> result = new ArrayList<>();
         Map<String, String> list;
 
         AreaEntity entity = new AreaCache().getEntity();
@@ -49,7 +46,7 @@ public class AreaUtils {
                 for (int i = 0; i < 100; i++) {
                     String _code = code + String.format("%02d", i);
                     if(null != list.get(_code)) {
-                        result.put(_code, list.get(_code));
+                        result.add(new AreaInfo(_code, list.get(_code)));
                     }
                 }
             } else {
@@ -57,13 +54,13 @@ public class AreaUtils {
                     code = provinceCode + String.format("%02d", i) + (target == TargetType.CITY ? "00" : "");
                     if(target == TargetType.CITY) {
                         if(null != list.get(code)) {
-                            result.put(code, list.get(code));
+                            result.add(new AreaInfo(code, list.get(code)));
                         }
                     } else {
                         for (int j = 0; j < 100; j++) {
                             String _code = code + String.format("%02d", j);
                             if(null != list.get(_code)) {
-                                result.put(_code, list.get(_code));
+                                result.add(new AreaInfo(_code, list.get(_code)));
                             }
                         }
                     }
@@ -71,7 +68,7 @@ public class AreaUtils {
             }
         } else {
             for (String key : list.keySet()) {
-                result.put(key, list.get(key));
+                result.add(new AreaInfo(key, list.get(key)));
             }
         }
 
@@ -84,24 +81,25 @@ public class AreaUtils {
      * @param code
      * @return
      */
-    private static Map<String, String> getTargetParentAreaListByCode(TargetType target, String code) {
+    private static List<AreaInfo> getTargetParentAreaListByCode(TargetType target, String code) {
         AreaEntity entity = new AreaCache().getEntity();
         Map<String, String> provinceList = entity.getProvinceList();
         Map<String, String> cityList = entity.getCityList();
         Map<String, String> areaList = entity.getAreaList();
-        Map<String, String> result = new HashMap<>();
-        result.put(code, areaList.get(code));
+        List<AreaInfo> result = new ArrayList<>();
+        result.add(0, new AreaInfo(code, areaList.get(code)));
         if(target == TargetType.CITY || target == TargetType.PROVINCE) {
             code = code.substring(0, 4) + "00";
-            result.put(code, cityList.get(code));
+            result.add(0, new AreaInfo(code, cityList.get(code)));
         }
         if(target == TargetType.PROVINCE) {
             code = code.substring(0, 2) + "0000";
-            result.put(code, provinceList.get(code));
+            result.add(0, new AreaInfo(code, provinceList.get(code)));
         }
-        // FIXME: 2020/8/19 这里使用map不能保证顺序，导致省信息作为第二个返回
         return result;
     }
+
+
 
     public static Pair<Integer, String> shortIndexOf(String address, String shortName, String name) {
         int index = address.indexOf(shortName);
@@ -122,9 +120,26 @@ public class AreaUtils {
     }
 
     public static void main(String[] args) {
-        Map<String, String> code = AreaUtils.getTargetAreaListByCode(TargetType.AREA, "140900", false);
-        code.keySet().stream().forEach((k) -> System.out.println(k + ":" + code.get(k)));
+        List<AreaInfo> res = AreaUtils.getTargetAreaListByCode(TargetType.AREA, "140900", false);
+        res.forEach(System.out::println);
     }
 
 
+    static class AreaInfo {
+        String code;
+        String name;
+
+        public AreaInfo(String code, String name) {
+            this.code = code;
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return "AreaInfo{" +
+                    "code='" + code + '\'' +
+                    ", name='" + name + '\'' +
+                    '}';
+        }
+    }
 }
