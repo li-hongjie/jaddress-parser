@@ -2,7 +2,6 @@ package com.github.lihongjie.jaddressparser;
 
 import cn.hutool.core.util.ReUtil;
 
-import java.util.List;
 
 public class AddressParser {
 
@@ -19,9 +18,9 @@ public class AddressParser {
 //        this.parseMobile();
 //        this.parsePhone();
 //        this.parseZipCode();
-        address = address.replaceAll("/ {2,}/", " ");
-        List<AreaParserResult> parse = new AreaParser().parse(address, isParseAll);
-        parse.forEach(System.out::println);
+//        address = address.replaceAll("/ {2,}/", " ");
+//        List<AreaParserResult> parse = new AreaParser().parse(address, isParseAll);
+//        parse.forEach(System.out::println);
     }
 
     /**
