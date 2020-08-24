@@ -61,6 +61,7 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
 ////                                                            a.name.length() > b.name.length() ? 1 : a.name.length() < b.name.length() ? -1 : 0;
 //        });
 
+        String finalAddress = address;
         results.sort((a, b) -> {
 //            if(a.__parse && b.__parse) {
 //                return -1;
@@ -78,6 +79,12 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
                 return 1;
             }
             if(b.__parse && b.__type.equals("parseByProvince")) {
+                return 1;
+            }
+            if(!a.__parse && !b.__parse &&
+                    (StrUtil.indexOfIgnoreCase(finalAddress,a.province) < StrUtil.indexOfIgnoreCase(finalAddress, b.province)
+                            || StrUtil.indexOfIgnoreCase(finalAddress, a.city) < StrUtil.indexOfIgnoreCase(finalAddress, b.city)
+                            || StrUtil.indexOfIgnoreCase(finalAddress, a.area) < StrUtil.indexOfIgnoreCase(finalAddress, b.area))) {
                 return 1;
             }
             return -1;
@@ -118,6 +125,8 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
                 result.province = province.getName();
                 result.code = province.getCode();
                 String _address = address.substring(provinceLength);
+
+                // TODO: 2020/8/21 无作用
                 if(StrUtil.isBlank(_address) || _address.charAt(0) != '市' || _address.indexOf(province.getName()) > -1) {
                     address = _address;
                 }
@@ -136,9 +145,16 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
                 }
 
                 if (StrUtil.isNotBlank(result.city)) {
-                    address = __address;
+//                    address = __address;
                     result.__parse = true;
-                    break;
+
+                    // FIXME: 2020/8/20 重置数据
+                    result.details = __address.trim();
+                    results.add(0, result);
+                    result = new ProvinceParserResult();
+                    address = addressSrc;
+
+//                    break;
                 } else {
                     //如果没有识别到地区 缓存本次结果，并重置数据
                     result.details = address.trim();
@@ -151,10 +167,11 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
 
         }
 
-        if(StrUtil.isNotBlank(result.code)) {
-            result.details = address.trim();
-            results.add(0, result);
-        }
+        // FIXME: 2020/8/20 删除
+//        if(StrUtil.isNotBlank(result.code)) {
+//            result.details = address.trim();
+//            results.add(0, result);
+//        }
         return results;
 
     }
@@ -237,9 +254,11 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
     private String parseAreaByCity(String address, AddressParserResult result) {
         List<RegionList.RegionEntity> areaList = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.AREA, result.code);
         MiddleParserResult _result = new MiddleParserResult();
+        //循环所有城市下地区的列表
         for(RegionList.RegionEntity area : areaList) {
-            if(StrUtil.containsAny(area.getName(), "开发区", "经济开发区", "高新区")) continue;
+//            if(StrUtil.containsAny(area.getName(), "开发区", "经济开发区", "高新区")) continue;
             int index = address.indexOf(area.getName());
+            //尝试使用简写匹配
             String shortArea = index > -1 ? "" : RegionCache.getAreaShort().get(area.getCode());
             if(StrUtil.isNotBlank(shortArea)) {
                 Pair<Integer, String> pair = AreaUtils.shortIndexOf(address, shortArea, area.getName());
@@ -247,7 +266,14 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
                 shortArea = pair.getValue();
             }
             int areaLength = StrUtil.isNotBlank(shortArea) ? shortArea.length() : area.getName().length();
-            if(index > -1 && (_result.index == -1 || _result.index > index || (StrUtil.isBlank(shortArea) && _result.isShort))) {
+//            if(index > -1
+//                    && (_result.index == -1 || (StrUtil.isBlank(shortArea) && _result.isShort))
+//                    && (_result.index == -1 || _result.index > index)) {
+            if(index > -1 &&
+                    (_result.index == -1
+                            || (StrUtil.isBlank(shortArea) && _result.isShort)
+                            || (((StrUtil.isBlank(shortArea) && !_result.isShort) || ((StrUtil.isNotBlank(shortArea) && _result.isShort))) && _result.index > index)
+                            || (StrUtil.containsAny(_result.area, "开发区", "高新区", "工业园区")) )) {
                 _result.area = area.getName();
                 _result.code = area.getCode();
                 _result.index = index;
@@ -278,10 +304,12 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
      * @param result
      * @return
      */
+    // TODO: 2020/8/20 改写，多次匹配
     private String parseAreaByProvince(String address, AddressParserResult result) {
         List<RegionList.RegionEntity> areaList = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.AREA, result.code);
+        MiddleParserResult _result = new MiddleParserResult();
         for(RegionList.RegionEntity area : areaList) {
-            if(StrUtil.containsAny(area.getName(), "开发区", "经济开发区", "高新区")) continue;
+//            if(StrUtil.containsAny(area.getName(), "开发区", "经济开发区", "高新区")) continue;
             int index = address.indexOf(area.getName());
             String shortArea = index > -1 ? "" : RegionCache.getAreaShort().get(area.getCode());
             if(StrUtil.isNotBlank(shortArea)) {
@@ -291,25 +319,34 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
             }
             int areaLength = StrUtil.isNotBlank(shortArea) ? shortArea.length() : area.getName().length();
 
-            if(index > -1 && index < 6) {
-                RegionList.RegionEntity city = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.CITY, area.getCode(), true).get(0);
-
-                result.city = city.getName();
-                result.area = area.getName();
-                result.code = area.getCode();
-
-                address = address.substring(index + areaLength);
-                //如果是用短名匹配的 要替换地区关键字
+            if(index > -1 &&
+                    (_result.index == -1
+                            || (StrUtil.isBlank(shortArea) && _result.isShort)
+                            || (((StrUtil.isBlank(shortArea) && !_result.isShort) || ((StrUtil.isNotBlank(shortArea) && _result.isShort))) && _result.index > index)
+                            || (StrUtil.containsAny(_result.area, "开发区", "高新区", "工业园区")) )) {
+                _result.area = area.getName();
+                _result.code = area.getCode();
+                _result.index = index;
+                _result.address = address.substring(index + areaLength);
+                _result.isShort = StrUtil.isNotBlank(shortArea);
+                //如果是用短名匹配的 要替换市关键字
                 if(StrUtil.isNotBlank(shortArea)) {
                     for(String key : RegionCache.getAreaKeys()) {
-                        if(address.indexOf(key) == 0) {
-                            address = address.substring(key.length());
+                        if(_result.address.indexOf(key) == 0) {
+                            _result.address = _result.address.substring(key.length());
                         }
                     }
                 }
-                break;
-
             }
+        }
+
+        if(_result.index > -1) {
+            RegionList.RegionEntity city = AreaUtils.getTargetAreaListByCode(AreaUtils.TargetType.CITY, _result.code, true).get(0);
+
+            result.city = city.getName();
+            result.area = _result.area;
+            result.code = _result.code;
+            address = _result.address;
         }
 
         return address;
@@ -450,6 +487,7 @@ public class DefaultAddressInterpreter implements AddressInterpreter {
                     result.details = address.trim();
                     results.add(0, result);
                     result = new AreaParserResult();
+                    address = addressBase;
                 }
             }
         }

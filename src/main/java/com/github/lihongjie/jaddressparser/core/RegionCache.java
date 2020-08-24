@@ -30,6 +30,12 @@ public class RegionCache {
     private static final RegionList AREA_LIST;
     private static final RegionList AREA_SHORT;
 
+
+    /**
+     * 外国国家列表
+     */
+    private static final RegionList FOREIGN_COUNTRY_LIST;
+
     private static final String[] PROVINCE_KEYS = new String[] {
             "特别行政区", "古自治区", "维吾尔自治区", "壮族自治区", "回族自治区", "自治区", "省省直辖", "省", "市"
     };
@@ -54,6 +60,8 @@ public class RegionCache {
     };
 
     static {
+        byte[] countryData = IoUtil.readBytes(RegionCache.class.getClassLoader().getResourceAsStream("country.dat"));
+        FOREIGN_COUNTRY_LIST = JSONUtil.toBean(decode(countryData), RegionList.class);
         byte[] provinceData = IoUtil.readBytes(RegionCache.class.getClassLoader().getResourceAsStream("province.dat"));
         PROVINCE_LIST = JSONUtil.toBean(decode(provinceData), RegionList.class);
         byte[] cityData = IoUtil.readBytes(RegionCache.class.getClassLoader().getResourceAsStream("city.dat"));
@@ -65,6 +73,8 @@ public class RegionCache {
         PROVINCE_SHORT = new RegionList();
         CITY_SHORT = new RegionList();
         AREA_SHORT = new RegionList();
+
+
 
         for(RegionList.RegionEntity entity : PROVINCE_LIST) {
             String name = entity.getName();
@@ -96,6 +106,10 @@ public class RegionCache {
     }
 
     public static void main(String[] args) throws FileNotFoundException {
+        byte[] bytes0 = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("country.json"));
+        byte[] zips0 = Base64.encode(ZipUtil.gzip(bytes0), true);
+        IoUtil.write(new FileOutputStream("C:\\Users\\Administrator\\IdeaProjects\\jaddress-parser\\src\\main\\resources\\country.dat"),true, zips0);
+
         byte[] bytes1 = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("province.json"));
         byte[] zips1 = Base64.encode(ZipUtil.gzip(bytes1), true);
         IoUtil.write(new FileOutputStream("C:\\Users\\Administrator\\IdeaProjects\\jaddress-parser\\src\\main\\resources\\province.dat"),true, zips1);
@@ -107,11 +121,6 @@ public class RegionCache {
         byte[] bytes3 = IoUtil.readBytes(AreaEntity.class.getClassLoader().getResourceAsStream("area.json"));
         byte[] zips3 = Base64.encode(ZipUtil.gzip(bytes3), true);
         IoUtil.write(new FileOutputStream("C:\\Users\\Administrator\\IdeaProjects\\jaddress-parser\\src\\main\\resources\\area.dat"),true, zips3);
-
-//        AreaCache cache = new AreaCache();
-//        AreaEntity entity = cache.getCache();
-//        System.out.println(entity);
-
 
     }
 
@@ -154,5 +163,9 @@ public class RegionCache {
 
     public static String[] getProvinceKeys() {
         return PROVINCE_KEYS;
+    }
+
+    public static RegionList getForeignCountryList() {
+        return FOREIGN_COUNTRY_LIST;
     }
 }
